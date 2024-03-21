@@ -1,0 +1,13 @@
+name = "ada_search"
+description = "Shiny new project"
+version = "0.1.0-dev"
+
+authors = ["Damien"]
+maintainers = ["Damien <damiensporting@gmail.com>"]
+maintainers-logins = ["DamDC91"]
+
+executables = ["ada_search"]
+[[depends-on]]
+libadalang = "^23.0.0"
+[[depends-on]]
+gnatcoll = "^23.0.0"
