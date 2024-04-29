@@ -1,103 +1,127 @@
 with Libadalang;
 with Libadalang.Helpers;
 with Libadalang.Analysis;
-with Ada.Command_Line;
 with GNATCOLL.Projects;
 with Libadalang.Project_Provider;
 with Ada.Text_IO;
 with Ada.Strings.Unbounded;
-with Libadalang.Iterators;
-with Ada.Containers.Vectors;
-with Libadalang.Common;
-with Langkit_Support.Text;
-with GNATCOLL.Damerau_Levenshtein_Distance;
+with GNATCOLL.Opt_Parse;
+with Search_Queries;
+with Fuzzy_Matcher;
+with Ada.Characters.Handling;
 
 procedure Ada_Search is
 
-   package LAL renames Libadalang.Analysis;
-   package LALCO renames Libadalang.Common;
-   Gpr   : constant String := Ada.Command_Line.Argument (1);
-   Query : constant String := Ada.Command_Line.Argument (2);
-   Tree  : GNATCOLL.Projects.Project_Tree_Access;
-   Env   : GNATCOLL.Projects.Project_Environment_Access;
-   Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
-
-   Ctx : LAL.Analysis_Context;
-
-   type Subp_Entry_Type is record
-      Node : LAL.Ada_Node;
-      Name : Ada.Strings.Unbounded.Unbounded_String;
-      File_Name : Ada.Strings.Unbounded.Unbounded_String;
-      Distance : Natural;
-   end record;
-
-   package Subp_Entries_Vectors is new Ada.Containers.Vectors
-     (Index_Type   => Positive,
-      Element_Type => Subp_Entry_Type);
-   Subp_Entries : Subp_Entries_Vectors.Vector;
-begin
-   Libadalang.Helpers.Load_Project
-     (Project_File => Gpr, Project => Tree, Env =>  Env);
-   Files := Libadalang.Project_Provider.Source_Files
-     (Tree.all, Libadalang.Project_Provider.Root_Project);
-   Ctx := LAL.Create_Context
-     (Unit_Provider => Libadalang.Helpers.Project_To_Provider (Tree));
-   for File of Files loop
-      declare
-         File_Name : constant String := Ada.Strings.Unbounded.To_String (File);
-         Unit : constant LAL.Analysis_Unit := LAL.Get_From_File (Ctx, File_Name);
-
-      begin
-         for N of Libadalang.Iterators.Find (Unit.Root, Libadalang.Iterators.Kind_Is (LALCO.Ada_Subp_Decl)).Consume loop
-            declare
-               Spec : constant LAL.Subp_Spec := N.As_Subp_Decl.F_Subp_Spec;
-               Subp_Entry : Ada.Strings.Unbounded.Unbounded_String;
-               First_Loop : Boolean := True;
-               use Ada.Strings.Unbounded;
-            begin
-
-               Append (Subp_Entry, Langkit_Support.Text.Image (N.As_Subp_Decl.F_Subp_Spec.F_Subp_Name.F_Name.Text));
-               if not N.As_Subp_Decl.F_Subp_Spec.F_Subp_Params.Is_Null then
-                  for P of N.As_Subp_Decl.F_Subp_Spec.F_Subp_Params.F_Params loop
-                     if First_Loop then
-                        First_Loop := False;
-                        Append (Subp_Entry, "(");
-                     else
-                        Append (Subp_Entry, ",");
-                     end if;
-                     Append (Subp_Entry, Langkit_Support.Text.Image (P.As_Param_Spec.F_Type_Expr.P_Type_Name.Text));
-                  end loop;
-               end if;
-               Append (Subp_Entry, ")");
-               if not N.As_Subp_Decl.F_Subp_Spec.F_Subp_Returns.Is_Null then
-                  Append (Subp_Entry, Langkit_Support.Text.Image (N.As_Subp_Decl.F_Subp_Spec.F_Subp_Returns.P_Type_Name.Text));
-               end if;
-
-               Subp_Entries_Vectors.Append (Subp_Entries, (Node => N.As_Ada_Node,
-                                                           Name => Subp_Entry,
-                                                           File_Name => File,
-                                                           Distance =>
-                                                             GNATCOLL.Damerau_Levenshtein_Distance
-                                                               (To_String (Subp_Entry),
-                                                                Query)));
-            end;
-         end loop;
-      end;
-   end loop;
-
-   declare
-      function Compare (L, R : Subp_Entry_Type) return Boolean
-      is
-      begin
-         return L.Distance < R.Distance;
-      end Compare;
-
-      package Sort is new Subp_Entries_Vectors.Generic_Sorting (Compare);
+   package Args is
+      use GNATCOLL.Opt_Parse;
       use Ada.Strings.Unbounded;
-   begin
-      Sort.Sort (Subp_Entries);
-      for E of Subp_Entries loop
-         Ada.Text_IO.Put_Line (To_String (E.File_Name & ": " & E.Name));
-      end loop;
-   end;
+
+      Parser : Argument_Parser := Create_Argument_Parser
+        (Help => "Ada_Search helps you find the subprogram you need");
+
+      package Query is new Parse_Positional_Arg
+        (Parser,
+         Name        => "Query",
+         Arg_Type    => Unbounded_String,
+         Help        => "Function  : ""(First_Arg_Type, Second_Arg_Type, ...) -> Returned_Type"" "
+         & "Procedure : ""(First_Arg_Type, Second_Arg_Type, ...)""");
+
+      package Number_Of_Match is new Parse_Option
+        (Parser, "-n",
+         Name        => "Number of match",
+         Arg_Type    => Unbounded_String,
+         Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("5"),
+         Help        => "Display N match, default is 5");
+
+      package Project_File is new Parse_Option
+        (Parser, "-P", "--project",
+         Arg_Type    => Unbounded_String,
+         Default_Val => Null_Unbounded_String,
+         Help        => "Project file to use");
+
+      package Files is new Parse_Option_List
+        (Parser, "-f", "--files",
+         Arg_Type    => Unbounded_String,
+         Help        => "Files to analyze");
+
+   end Args;
+
+   package LAL renames Libadalang.Analysis;
+begin
+   if Args.Parser.Parse then
+
+      declare
+         use Ada.Strings.Unbounded;
+         function "+" (S : Ada.Strings.Unbounded.Unbounded_String)
+                       return String renames Ada.Strings.Unbounded.To_String;
+         Gpr   : constant String := +Args.Project_File.Get;
+         Query_Result : constant Search_Queries.Search_Query_Result_Type :=
+           Search_Queries.Parse_Query (+Args.Query.Get);
+         Tree  : GNATCOLL.Projects.Project_Tree_Access;
+         Env   : GNATCOLL.Projects.Project_Environment_Access;
+         Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
+         Ctx : LAL.Analysis_Context;
+         Number_Of_Match_Str : constant String :=
+           Ada.Strings.Unbounded.To_String (Args.Number_Of_Match.Get);
+         Number_Of_Match   : Natural;
+
+      begin
+
+         if (for all C of Number_Of_Match_Str =>
+               Ada.Characters.Handling.Is_Digit (C))
+         then
+            Number_Of_Match := Natural'Value (Number_Of_Match_Str);
+         else
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Standard_Error, "-n must be a number");
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Standard_Error, Args.Parser.Help);
+            return;
+         end if;
+
+         if not Query_Result.Valid then
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Standard_Error, "Invalid query");
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Standard_Error, Args.Parser.Help);
+            return;
+         end if;
+
+         if Args.Project_File.Get /= "" then
+            Libadalang.Helpers.Load_Project
+              (Project_File => Gpr,
+               Project => Tree,
+               Env =>  Env);
+
+            Ctx := LAL.Create_Context
+              (Unit_Provider => Libadalang.Helpers.Project_To_Provider (Tree));
+         else
+            Ctx := LAL.Create_Context;
+         end if;
+
+         if not Args.Files."=" (Args.Files.Get, Args.Files.No_Results) then
+            for File of Args.Files.Get loop
+               Files.Append (File);
+            end loop;
+         elsif Args.Project_File.Get /= "" then
+            Files := Libadalang.Project_Provider.Source_Files
+              (Tree.all,
+               Libadalang.Project_Provider.Root_Project);
+         end if;
+
+         declare
+            Result : constant Fuzzy_Matcher.Entries_Vectors.Vector :=
+              Fuzzy_Matcher.Match
+                (Files => Files,
+                 Context => Ctx,
+                 Search_Query => Query_Result.Query,
+                 Nb_Of_Match => Number_Of_Match);
+         begin
+            for R of Result loop
+               Ada.Text_IO.Put_Line (Fuzzy_Matcher.Image (R));
+            end loop;
+         end;
+      end;
+   end if;
+
 end Ada_Search;
