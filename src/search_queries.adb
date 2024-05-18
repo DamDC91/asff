@@ -84,7 +84,9 @@ package body Search_Queries is
    begin
       if Start_Args /= No_Space_Query'First or else End_Args = 0 then
          return (Valid => False,
-                 Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String ("Query must start by '"& Args_Beg &"' and having a closing '" & Args_End & "'"));
+                 Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
+                   ("Query must start by '" & Args_Beg
+                    & "' and having a closing '" & Args_End & "'"));
       end if;
 
       Arguments :=
@@ -94,7 +96,9 @@ package body Search_Queries is
 
       if not Args_Success then
          return (Valid => False,
-                Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String ("Arguments type must be Ada identifier only, no 'access', ''class', 'in out'...)"));
+                Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
+                   ("Arguments type must be Ada identifier only, no 'access',"
+                    & " ''class', 'in out'...)"));
       end if;
 
       if No_Space_Query'Last >= Start_Ret then
@@ -106,17 +110,21 @@ package body Search_Queries is
                Returned := Ada.Strings.Unbounded.To_Unbounded_String
                  (Type_Name);
                if not Is_Ada_Identifier (Returned) then
-                  return (Valid => False,
-                          Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String ("Returned type must be Ada identifier only, no 'access', ''class'...)"));
+                  return (Valid     => False,
+                          Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
+                            ("Returned type must be Ada identifier only,"
+                             & " no 'access', ''class'...)"));
                end if;
             end;
          else
             return (Valid => False,
-                    Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String ("Only '" & Ret_Sep & "' can be found after ')'"));
+                    Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
+                      ("Only '" & Ret_Sep & "' can be found after ')'"));
          end if;
       elsif No_Space_Query'Last /= End_Args then
          return (Valid => False,
-                 Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String ("Only '" & Ret_Sep & "' can be found after ')'"));
+                 Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
+                   ("Only '" & Ret_Sep & "' can be found after ')'"));
       end if;
 
       Use_Fully_Qualified := (for some Arg of Arguments =>

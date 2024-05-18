@@ -1,14 +1,14 @@
-with "config/ada_search_config.gpr";
-project Ada_Search is
+with "config/asff_config.gpr";
+project Asff is
 
    for Source_Dirs use ("src/", "config/");
-   for Object_Dir use "obj/" & Ada_Search_Config.Build_Profile;
+   for Object_Dir use "obj/" & Asff_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
-   for Main use ("ada_search.adb");
+   for Main use ("asff.adb");
 
    package Compiler is
-      for Default_Switches ("Ada") use Ada_Search_Config.Ada_Compiler_Switches;
+      for Default_Switches ("Ada") use Asff_Config.Ada_Compiler_Switches;
    end Compiler;
 
    package Binder is
@@ -19,4 +19,4 @@ project Ada_Search is
       for Artifacts (".") use ("share");
    end Install;
 
-end Ada_Search;
+end Asff;

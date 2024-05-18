@@ -1,12 +1,12 @@
-name = "ada_search"
-description = "Shiny new project"
+name = "asff"
+description = "ada subprogram fuzzy finder"
 version = "0.1.0-dev"
 
 authors = ["Damien"]
 maintainers = ["Damien <damiensporting@gmail.com>"]
 maintainers-logins = ["DamDC91"]
 
-executables = ["ada_search"]
+executables = ["asff"]
 [[depends-on]]
 libadalang = "^23.0.0"
 [[depends-on]]

@@ -11,14 +11,14 @@ with Ada.Characters.Handling;
 with Pretty_Print_Result;
 with Ada.Command_Line;
 
-procedure Ada_Search is
+procedure Asff is
 
    package Args is
       use GNATCOLL.Opt_Parse;
       use Ada.Strings.Unbounded;
 
       Parser : Argument_Parser := Create_Argument_Parser
-        (Help => "Ada_Search helps you find the subprogram you need");
+        (Help => "Asff: Ada subprogram fuzzy finder");
 
       package Query is new Parse_Positional_Arg
         (Parser,
@@ -153,4 +153,4 @@ begin
       Ada.Command_Line.Set_Exit_Status (1);
    end if;
 
-end Ada_Search;
+end Asff;
