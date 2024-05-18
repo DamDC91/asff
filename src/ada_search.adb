@@ -1,4 +1,3 @@
-with Libadalang;
 with Libadalang.Helpers;
 with Libadalang.Analysis;
 with GNATCOLL.Projects;
@@ -9,6 +8,8 @@ with GNATCOLL.Opt_Parse;
 with Search_Queries;
 with Fuzzy_Matcher;
 with Ada.Characters.Handling;
+with Pretty_Print_Result;
+with Ada.Command_Line;
 
 procedure Ada_Search is
 
@@ -23,15 +24,23 @@ procedure Ada_Search is
         (Parser,
          Name        => "Query",
          Arg_Type    => Unbounded_String,
-         Help        => "Function  : ""(First_Arg_Type, Second_Arg_Type, ...) -> Returned_Type"" "
+         Help        => "Function  : ""(First_Arg_Type, Second_Arg_Type, ...)"
+         & "-> Returned_Type"" "
          & "Procedure : ""(First_Arg_Type, Second_Arg_Type, ...)""");
 
-      package Number_Of_Match is new Parse_Option
-        (Parser, "-n",
-         Name        => "Number of match",
+      package Limit_Percentage is new Parse_Option
+        (Parser,
+         Long        => "--limit-percentage",
          Arg_Type    => Unbounded_String,
-         Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("5"),
-         Help        => "Display N match, default is 5");
+         Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("20"),
+         Help        => "Display matches with scores above the given"
+         & " percentage of the top score. Default value is 20%.");
+
+      package Name_Only_Flag is new Parse_Flag
+        (Parser,
+         Short => "",
+         Long  => "--name-only",
+         Help  => "Print only subprogram name");
 
       package Project_File is new Parse_Option
         (Parser, "-P", "--project",
@@ -62,28 +71,31 @@ begin
          Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
          Ctx : LAL.Analysis_Context;
          Number_Of_Match_Str : constant String :=
-           Ada.Strings.Unbounded.To_String (Args.Number_Of_Match.Get);
-         Number_Of_Match   : Natural;
+           Ada.Strings.Unbounded.To_String (Args.Limit_Percentage.Get);
+         Percentage   : Natural;
 
       begin
 
          if (for all C of Number_Of_Match_Str =>
                Ada.Characters.Handling.Is_Digit (C))
          then
-            Number_Of_Match := Natural'Value (Number_Of_Match_Str);
+            Percentage := Natural'Value (Number_Of_Match_Str);
          else
             Ada.Text_IO.Put_Line
               (Ada.Text_IO.Standard_Error, "-n must be a number");
             Ada.Text_IO.Put_Line
               (Ada.Text_IO.Standard_Error, Args.Parser.Help);
+            Ada.Command_Line.Set_Exit_Status (1);
             return;
          end if;
 
          if not Query_Result.Valid then
             Ada.Text_IO.Put_Line
-              (Ada.Text_IO.Standard_Error, "Invalid query");
+              (Ada.Text_IO.Standard_Error, "Invalid query: " &
+                 Ada.Strings.Unbounded.To_String (Query_Result.Error_Msg));
             Ada.Text_IO.Put_Line
               (Ada.Text_IO.Standard_Error, Args.Parser.Help);
+            Ada.Command_Line.Set_Exit_Status (1);
             return;
          end if;
 
@@ -114,14 +126,15 @@ begin
               Fuzzy_Matcher.Match
                 (Files => Files,
                  Context => Ctx,
-                 Search_Query => Query_Result.Query,
-                 Nb_Of_Match => Number_Of_Match);
+                 Search_Query => Query_Result.Query);
          begin
-            for R of Result loop
-               Ada.Text_IO.Put_Line (Fuzzy_Matcher.Image (R));
-            end loop;
+            Pretty_Print_Result.Print_Result (Result,
+                                              Args.Name_Only_Flag.Get,
+                                              Percentage);
          end;
       end;
+   else
+      Ada.Command_Line.Set_Exit_Status (1);
    end if;
 
 end Ada_Search;

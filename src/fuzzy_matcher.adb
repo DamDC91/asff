@@ -1,5 +1,3 @@
-pragma Ada_2022;
-
 with Libadalang.Common;
 with Libadalang.Iterators;
 with Langkit_Support.Text;
@@ -37,11 +35,26 @@ package body Fuzzy_Matcher is
    end Designated_Type_Decl;
 
    function Type_Name (T : LAL.Type_Expr) return String is
-      Name : constant LAL.Unbounded_Text_Type_Array :=
-        Designated_Type_Decl (T).P_Fully_Qualified_Name_Array;
+      Base_Type : constant LAL.Base_Type_Decl := Designated_Type_Decl (T);
       use Langkit_Support.Text;
+      use type LALCO.Ada_Node_Kind_Type;
    begin
-         return To_Lower (Image (To_Text (Name (Name'Last))));
+      if Base_Type.Kind in LALCO.Ada_Type_Decl and then
+        Base_Type.As_Type_Decl.Kind = LALCO.Ada_Anonymous_Type_Decl
+      then
+         if not Base_Type.As_Type_Decl.F_Name.Is_Null then
+            return To_Lower (Image (Base_Type.As_Type_Decl.F_Name.Text));
+         else
+            return "";
+         end if;
+      else
+         declare
+            Name : constant LAL.Unbounded_Text_Type_Array :=
+              Base_Type.P_Fully_Qualified_Name_Array;
+         begin
+            return To_Lower (Image (To_Text (Name (Name'Last))));
+         end;
+      end if;
    end Type_Name;
 
    function Type_Full_Name (T : LAL.Type_Expr) return String is
@@ -142,28 +155,18 @@ package body Fuzzy_Matcher is
       Args      : Search_Queries.Arguments_Vectors.Vector;
       Fitness   : Fitness_Type := 0;
       Spec      : constant LAL.Subp_Spec := Subp.F_Subp_Spec;
-      use type LALCO.Ada_Subp_Kind;
    begin
       Args := Get_Arguments_Type_Name
         (Spec,
          Search_Query.Use_Fully_Qualified);
 
       Fitness := Compute_Arguments_Fitness (Args, Search_Query.Arguments_Type);
-      case Spec.F_Subp_Kind is
-         when LALCO.Ada_Subp_Kind_Function =>
-            declare
 
-            begin
-               Fitness := Fitness +
-                 Fitness_Type (GNATCOLL.Damerau_Levenshtein_Distance
-                               (-Get_Return_Type_Name (Spec,
-                                  Search_Query.Use_Fully_Qualified),
-                                  -Search_Query.Returned_Type));
-            end;
-
-         when LALCO.Ada_Subp_Kind_Procedure =>
-            null;
-      end case;
+      Fitness := Fitness +
+        Fitness_Type (GNATCOLL.Damerau_Levenshtein_Distance
+                      (-Get_Return_Type_Name (Spec,
+                         Search_Query.Use_Fully_Qualified),
+                         -Search_Query.Returned_Type));
       return (Subp => Subp,
               Fitness => Fitness);
    end Make_Entry;
@@ -197,12 +200,12 @@ package body Fuzzy_Matcher is
    function Match
      (Files        : Libadalang.Project_Provider.Filename_Vectors.Vector;
       Context      : Libadalang.Analysis.Analysis_Context;
-      Search_Query : Search_Queries.Search_Query_Type;
-      Nb_Of_Match : Positive)
+      Search_Query : Search_Queries.Search_Query_Type)
       return Entries_Vectors.Vector
    is
       Entries : Entries_Vectors.Vector := Entries_Vectors.Empty;
    begin
+
       for File of Files loop
          declare
             File_Name : constant String :=
@@ -229,14 +232,7 @@ package body Fuzzy_Matcher is
          end;
       end loop;
 
-      declare
-         use type Ada.Containers.Count_Type;
-      begin
-         Sort_Entries (Entries);
-         if Entries.Length > Ada.Containers.Count_Type (Nb_Of_Match) then
-            Entries.Set_Length (Ada.Containers.Count_Type (Nb_Of_Match));
-         end if;
-      end;
+      Sort_Entries (Entries);
       return Entries;
    end Match;
 

@@ -19,7 +19,7 @@ package Search_Queries is
          when True =>
             Query : Search_Query_Type;
          when False =>
-            null;
+            Error_Msg : Ada.Strings.Unbounded.Unbounded_String;
       end case;
    end record;
 

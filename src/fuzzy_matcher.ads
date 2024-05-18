@@ -21,8 +21,7 @@ package Fuzzy_Matcher is
    function Match
      (Files        : Libadalang.Project_Provider.Filename_Vectors.Vector;
       Context      : Libadalang.Analysis.Analysis_Context;
-      Search_Query : Search_Queries.Search_Query_Type;
-      Nb_Of_Match  : Positive)
+      Search_Query : Search_Queries.Search_Query_Type)
       return Entries_Vectors.Vector;
 
 end Fuzzy_Matcher;
