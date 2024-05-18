@@ -42,6 +42,13 @@ procedure Ada_Search is
          Long  => "--name-only",
          Help  => "Print only subprogram name");
 
+      package Statistics_Option is new Parse_Option
+        (Parser,
+         Long        => "--statistics",
+         Arg_Type    => Unbounded_String,
+         Default_Val => Ada.Strings.Unbounded.Null_Unbounded_String,
+         Help        => "Statistics file name.");
+
       package Project_File is new Parse_Option
         (Parser, "-P", "--project",
          Arg_Type    => Unbounded_String,
@@ -70,9 +77,12 @@ begin
          Env   : GNATCOLL.Projects.Project_Environment_Access;
          Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
          Ctx : LAL.Analysis_Context;
-         Number_Of_Match_Str : constant String :=
-           Ada.Strings.Unbounded.To_String (Args.Limit_Percentage.Get);
-         Percentage   : Natural;
+         Number_Of_Match_Str : constant String := +(Args.Limit_Percentage.Get);
+         Statistics_File_Name : constant String :=
+           +(Args.Statistics_Option.Get);
+         Should_Print_Statistics : constant Boolean :=
+           Statistics_File_Name'Length /= 0;
+         Percentage : Natural;
 
       begin
 
@@ -82,7 +92,8 @@ begin
             Percentage := Natural'Value (Number_Of_Match_Str);
          else
             Ada.Text_IO.Put_Line
-              (Ada.Text_IO.Standard_Error, "-n must be a number");
+              (Ada.Text_IO.Standard_Error,
+               "--limit-percentage must be a number");
             Ada.Text_IO.Put_Line
               (Ada.Text_IO.Standard_Error, Args.Parser.Help);
             Ada.Command_Line.Set_Exit_Status (1);
@@ -131,6 +142,11 @@ begin
             Pretty_Print_Result.Print_Result (Result,
                                               Args.Name_Only_Flag.Get,
                                               Percentage);
+            if Should_Print_Statistics then
+               Pretty_Print_Result.Print_Statistic
+                 (Results => Result,
+                  File_Name => Statistics_File_Name);
+            end if;
          end;
       end;
    else
