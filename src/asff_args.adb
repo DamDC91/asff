@@ -72,6 +72,10 @@ package body Asff_Args is
         Ada.Text_IO.Current_Output;
       Parsed_Args : GNATCOLL.Opt_Parse.Parsed_Arguments;
    begin
+      --  This function is an ugly work-around
+      --  QUERY must be a positional argument!
+      --  However: asff --version must be a valid input and the help must not
+      --  be printed.
 
       if (for some I in 1 .. Ada.Command_Line.Argument_Count =>
             Ada.Command_Line.Argument (I) = "--help"
@@ -121,13 +125,11 @@ package body Asff_Args is
                     Files => Vector_Files);
          end;
       else
-         for I in 1 .. Ada.Command_Line.Argument_Count loop
-            Ada.Text_IO.Put_Line (Ada.Command_Line.Argument (I));
-         end loop;
          Ada.Text_IO.Set_Output (Current_FD);
          Ada.Text_IO.Close (Null_FD);
          return (Query => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Limit_Percentage => Ada.Strings.Unbounded.Null_Unbounded_String,
+                 Limit_Percentage =>
+                   Ada.Strings.Unbounded.Null_Unbounded_String,
                  Name_Only => False,
                  Version => Arguments.Version_Flag.Get (Parsed_Args),
                  Help => False,

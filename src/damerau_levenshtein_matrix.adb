@@ -51,9 +51,13 @@ package body Damerau_Levenshtein_Matrix is
             Min_J : Col_Index_Type;
             Min   : Damerau_Levenshtein_Distance_Type :=
               Damerau_Levenshtein_Distance_Type'Last;
+            pragma Warnings
+              (Off,
+               """Result_Indices"" may be referenced before it has a value");
          begin
             for I in Matrix'Range (1) loop
                for J in Matrix'Range (2) loop
+
                   if Matrix (I, J) < Min and then
                     (for all P in Result_Indices'First .. Step - 1 =>
                        I /= Result_Indices (P).Row and then
@@ -67,6 +71,8 @@ package body Damerau_Levenshtein_Matrix is
             end loop;
             Result_Indices (Step) := (Row => Min_I, Col => Min_J);
          end;
+         pragma Warnings
+           (On, """Result_Indices"" may be referenced before it has a value");
       end loop;
       return Result_Indices;
    end Compute_Minimun_Distance;

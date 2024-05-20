@@ -111,9 +111,10 @@ package body Search_Queries is
                  (Type_Name);
                if not Is_Ada_Identifier (Returned) then
                   return (Valid     => False,
-                          Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
-                            ("Returned type must be Ada identifier only,"
-                             & " no 'access', ''class'...)"));
+                          Error_Msg =>
+                            Ada.Strings.Unbounded.To_Unbounded_String
+                              ("Returned type must be Ada identifier only,"
+                               & " no 'access', ''class'...)"));
                end if;
             end;
          else
