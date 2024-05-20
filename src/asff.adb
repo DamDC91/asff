@@ -53,102 +53,97 @@ procedure Asff is
      (Source => Asff_Args.Filename_Vectors.Vector,
       Target => Libadalang.Project_Provider.Filename_Vectors.Vector);
 
-   Args : Asff_Args.Argument_Record_Type;
-   Success : Boolean;
 begin
 
-   Args := Asff_Args.Parse_Arguments (Success);
+   declare
+      Parsed_Args : constant Asff_Args.Parsed_Arguments :=
+        Asff_Args.Parse_Arguments;
+   begin
 
-   if Success and then not Args.Help then
-
-      declare
-         function To_Str (S : Ada.Strings.Unbounded.Unbounded_String)
-                          return String
-                          renames Ada.Strings.Unbounded.To_String;
-         Query_Result : constant Search_Queries.Search_Query_Result_Type :=
-           Search_Queries.Parse_Query (To_Str (Args.Query));
-         Should_Print_Statistics : constant Boolean :=
-           not Is_Empty (Args.Statistics);
-         Percentage : Natural;
-      begin
-
-         if Args.Version then
-            Print_Version_And_Exit;
-         end if;
-
-         if (for all C of To_Str (Args.Limit_Percentage) =>
-               Ada.Characters.Handling.Is_Digit (C))
-         then
-            Percentage := Natural'Value (To_Str (Args.Limit_Percentage));
-         else
-            Print_Error_And_Exit (Error_Msg =>
-                                    "--limit-percentage must be a number",
-                                  Print_Help => True);
-         end if;
-
-         if not Query_Result.Valid then
-            Print_Error_And_Exit (Error_Msg => "invalid query: " &
-                                    To_Str (Query_Result.Error_Msg),
-                                  Print_Help => True);
-         end if;
+      if Parsed_Args.Success then
 
          declare
-            Tree  : GNATCOLL.Projects.Project_Tree_Access;
-            Env   : GNATCOLL.Projects.Project_Environment_Access;
-            Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
-            Ctx : LAL.Analysis_Context;
+            function To_Str (S : Ada.Strings.Unbounded.Unbounded_String)
+                          return String
+                          renames Ada.Strings.Unbounded.To_String;
+            Args : constant Asff_Args.Arguments := Parsed_Args.Args;
+            Query_Result : constant Search_Queries.Search_Query_Result_Type :=
+              Search_Queries.Parse_Query (To_Str (Args.Query));
+            Should_Print_Statistics : constant Boolean :=
+              not Is_Empty (Args.Statistics);
+            Percentage : Natural;
          begin
-            if not Is_Empty (Args.Project) then
-               Libadalang.Helpers.Load_Project
-                 (Project_File => To_Str (Args.Project),
-                  Project => Tree,
-                  Env =>  Env);
 
-               Ctx := LAL.Create_Context
-                 (Unit_Provider =>
-                    Libadalang.Helpers.Project_To_Provider (Tree));
-            else
-               Ctx := LAL.Create_Context;
+            if Args.Version then
+               Print_Version_And_Exit;
             end if;
 
-            if not Asff_Args.Filename_Vectors.Is_Empty (Args.Files) then
-               Files := Conversion (Args.Files);
-            elsif not Is_Empty (Args.Project) then
-               Files := Libadalang.Project_Provider.Source_Files
-                 (Tree.all,
-                  Libadalang.Project_Provider.Root_Project);
+            if (for all C of To_Str (Args.Limit_Percentage) =>
+                  Ada.Characters.Handling.Is_Digit (C))
+            then
+               Percentage := Natural'Value (To_Str (Args.Limit_Percentage));
             else
                Print_Error_And_Exit (Error_Msg =>
-                                       "files or project must be provided",
+                                       "--limit-percentage must be a number",
+                                     Print_Help => True);
+            end if;
+
+            if not Query_Result.Valid then
+               Print_Error_And_Exit (Error_Msg => "invalid query: " &
+                                       To_Str (Query_Result.Error_Msg),
                                      Print_Help => True);
             end if;
 
             declare
-               Result : constant Fuzzy_Matcher.Entries_Vectors.Vector :=
-                 Fuzzy_Matcher.Match
-                   (Files => Files,
-                    Context => Ctx,
-                    Search_Query => Query_Result.Query);
+               Tree  : GNATCOLL.Projects.Project_Tree_Access;
+               Env   : GNATCOLL.Projects.Project_Environment_Access;
+               Files : Libadalang.Project_Provider.Filename_Vectors.Vector;
+               Ctx : LAL.Analysis_Context;
             begin
-               Pretty_Print_Result.Print_Result (Result,
-                                                 Args.Name_Only,
-                                                 Percentage);
-               if Should_Print_Statistics then
-                  Pretty_Print_Result.Print_Statistic
-                    (Results => Result,
-                     File_Name => To_Str (Args.Statistics));
+               if not Is_Empty (Args.Project) then
+                  Libadalang.Helpers.Load_Project
+                    (Project_File => To_Str (Args.Project),
+                     Project => Tree,
+                     Env =>  Env);
+
+                  Ctx := LAL.Create_Context
+                    (Unit_Provider =>
+                       Libadalang.Helpers.Project_To_Provider (Tree));
+               else
+                  Ctx := LAL.Create_Context;
                end if;
+
+               if not Asff_Args.Filename_Vectors.Is_Empty (Args.Files) then
+                  Files := Conversion (Args.Files);
+               elsif not Is_Empty (Args.Project) then
+                  Files := Libadalang.Project_Provider.Source_Files
+                    (Tree.all,
+                     Libadalang.Project_Provider.Root_Project);
+               else
+                  Print_Error_And_Exit (Error_Msg =>
+                                          "files or project must be provided",
+                                        Print_Help => True);
+               end if;
+
+               declare
+                  Result : constant Fuzzy_Matcher.Entries_Vectors.Vector :=
+                    Fuzzy_Matcher.Match
+                      (Files => Files,
+                       Context => Ctx,
+                       Search_Query => Query_Result.Query);
+               begin
+                  Pretty_Print_Result.Print_Result (Result,
+                                                    Args.Name_Only,
+                                                    Percentage);
+                  if Should_Print_Statistics then
+                     Pretty_Print_Result.Print_Statistic
+                       (Results => Result,
+                        File_Name => To_Str (Args.Statistics));
+                  end if;
+               end;
             end;
          end;
-      end;
-   else
-      if Args.Version then
-         Print_Version_And_Exit;
-      else
-         Print_Error_And_Exit (Error_Msg  => "",
-                               Print_Help => True);
       end if;
-
-   end if;
+   end;
 
 end Asff;

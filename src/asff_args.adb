@@ -1,25 +1,26 @@
-with Ada.Text_IO;
-with GNATCOLL.OS.FS;
 with GNATCOLL.Opt_Parse;
 with Ada.Containers;
-with Ada.Command_Line;
 
 package body Asff_Args is
 
-   package Arguments is
+   package Opt_Args is
       use GNATCOLL.Opt_Parse;
       use Ada.Strings.Unbounded;
 
       Parser : Argument_Parser := Create_Argument_Parser
         (Help => "Asff: Ada subprogram fuzzy finder");
 
-      package Query is new Parse_Positional_Arg
+      package Query is new Parse_Option
         (Parser,
          Name        => "Query",
+         Short       => "-q",
+         Long        => "--query",
          Arg_Type    => Unbounded_String,
-         Help        => "Function  : ""(First_Arg_Type, Second_Arg_Type, ...)"
-         & "-> Returned_Type"" "
-         & "Procedure : ""(First_Arg_Type, Second_Arg_Type, ...)""");
+         Default_Val => Ada.Strings.Unbounded.Null_Unbounded_String,
+         Help        => "Fuzzing query using the following syntax:        "
+         & "Function: (First_Type, Second_Type,...) "
+         & "-> Returned_Type "
+         & "Procedure: (First_Type, Second_Type,...)");
 
       package Limit_Percentage_Option is new Parse_Option
         (Parser,
@@ -59,83 +60,38 @@ package body Asff_Args is
          Arg_Type    => Unbounded_String,
          Help        => "Files to analyze");
 
-   end Arguments;
+   end Opt_Args;
 
    ---------------------
    -- Parse_Arguments --
    ---------------------
 
-   function Parse_Arguments (Success : out Boolean) return Argument_Record_Type
+   function Parse_Arguments return Parsed_Arguments
    is
-      Null_FD : Ada.Text_IO.File_Type;
-      Current_FD : constant Ada.Text_IO.File_Type :=
-        Ada.Text_IO.Current_Output;
-      Parsed_Args : GNATCOLL.Opt_Parse.Parsed_Arguments;
    begin
-      --  This function is an ugly work-around
-      --  QUERY must be a positional argument!
-      --  However: asff --version must be a valid input and the help must not
-      --  be printed.
-
-      if (for some I in 1 .. Ada.Command_Line.Argument_Count =>
-            Ada.Command_Line.Argument (I) = "--help"
-          or else Ada.Command_Line.Argument (I) = "-h")
-      then
-         return (Query => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Limit_Percentage =>
-                   Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Name_Only => False,
-                 Version => False,
-                 Help => True,
-                 Statistics => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Project => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Files => Filename_Vectors.Empty);
-      end if;
-
-      Ada.Text_IO.Open (File => Null_FD,
-                        Mode => Ada.Text_IO.Out_File,
-                        Name => GNATCOLL.OS.FS.Null_File);
-      Ada.Text_IO.Set_Output (Null_FD);
-      Success := Arguments.Parser.Parse (Result => Parsed_Args);
-
-      if Success then
-
+      if Opt_Args.Parser.Parse then
          declare
-            Array_Files : constant Arguments.Files_List_Option.Result_Array :=
-              Arguments.Files_List_Option.Get (Parsed_Args);
+            Array_Files : constant Opt_Args.Files_List_Option.Result_Array
+              := Opt_Args.Files_List_Option.Get;
             Vector_Files : Filename_Vectors.Vector := Filename_Vectors.Empty;
          begin
-
             for F of Array_Files loop
                Vector_Files.Append (F);
             end loop;
 
-            Ada.Text_IO.Set_Output (Current_FD);
-            Ada.Text_IO.Close (Null_FD);
-
-            return (Query => Arguments.Query.Get (Parsed_Args),
-                    Limit_Percentage =>
-                      Arguments.Limit_Percentage_Option.Get (Parsed_Args),
-                    Name_Only => Arguments.Name_Only_Flag.Get (Parsed_Args),
-                    Version => Arguments.Version_Flag.Get (Parsed_Args),
-                    Help => False,
-                    Statistics =>
-                      Arguments.Statistics_Option.Get (Parsed_Args),
-                    Project => Arguments.Project_File_Option.Get (Parsed_Args),
-                    Files => Vector_Files);
+            return
+              (Success => True,
+               Args =>
+                 (Query            => Opt_Args.Query.Get,
+                  Limit_Percentage => Opt_Args.Limit_Percentage_Option.Get,
+                  Name_Only        => Opt_Args.Name_Only_Flag.Get,
+                  Version          => Opt_Args.Version_Flag.Get,
+                  Statistics       => Opt_Args.Statistics_Option.Get,
+                  Project          => Opt_Args.Project_File_Option.Get,
+                  Files            => Vector_Files));
          end;
       else
-         Ada.Text_IO.Set_Output (Current_FD);
-         Ada.Text_IO.Close (Null_FD);
-         return (Query => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Limit_Percentage =>
-                   Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Name_Only => False,
-                 Version => Arguments.Version_Flag.Get (Parsed_Args),
-                 Help => False,
-                 Statistics => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Project => Ada.Strings.Unbounded.Null_Unbounded_String,
-                 Files => Filename_Vectors.Empty);
+         return (Success => False);
       end if;
    end Parse_Arguments;
 
@@ -146,7 +102,7 @@ package body Asff_Args is
    function Help return String
    is
    begin
-      return Arguments.Parser.Help;
+      return Opt_Args.Parser.Help;
    end Help;
 
 end Asff_Args;
