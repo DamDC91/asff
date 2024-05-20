@@ -1,0 +1,21 @@
+name: tests
+on: push
+
+jobs:
+  building:
+    runs-on: ubuntu-latest
+    steps:
+    # installing everything
+    - name: cloning asff
+      uses: actions/checkout@v3
+      with:
+        path: 'asff'
+
+    - name: installing alire
+      uses: alire-project/setup-alire@v1
+      with:
+        toolchain: 'gnat_native=11.2.4 gprbuild'
+
+    # generating source code and conpiling it
+    - name: build
+      run: cd asff; alr -n build
