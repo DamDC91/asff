@@ -6,6 +6,7 @@ with Ada.Containers;
 with Ada.Strings.Unbounded;
 with Ada.Characters.Handling;
 with Damerau_Levenshtein_Matrix;
+with Ada.Text_IO;
 
 package body Fuzzy_Matcher is
 
@@ -22,44 +23,131 @@ package body Fuzzy_Matcher is
    function "-" (S : Ada.Strings.Unbounded.Unbounded_String) return String
                  renames Ada.Strings.Unbounded.To_String;
 
-   function Designated_Type_Decl (T : LAL.Type_Expr'Class)
-                                  return LAL.Base_Type_Decl
-   is
-      D : LAL.Base_Type_Decl := T.P_Designated_Type_Decl;
-      use type LALCO.Ada_Node_Kind_Type;
-   begin
-      if D.Kind = LALCO.Ada_Classwide_Type_Decl then
-         D := D.F_Name.P_Basic_Decl.As_Base_Type_Decl;
-      end if;
-      return D;
-   end Designated_Type_Decl;
+   function Get_Subtype_Indication_Name
+     (T                : LAL.Subtype_Indication;
+      Fully_Quallified : Boolean)
+      return String;
 
-   function Type_Name (T : LAL.Type_Expr) return String is
-      Base_Type : constant LAL.Base_Type_Decl := Designated_Type_Decl (T);
+   function Get_Anonymous_Type_Decl_Name
+     (T                : LAL.Anonymous_Type_Decl;
+      Fully_Quallified : Boolean)
+      return String;
+
+   function Get_Name (T                : LAL.Base_Type_Decl'Class;
+                      Fully_Quallified : Boolean) return String
+   is
       use Langkit_Support.Text;
-      use type LALCO.Ada_Node_Kind_Type;
    begin
-      if Base_Type.Kind in LALCO.Ada_Type_Decl and then
-        Base_Type.As_Type_Decl.Kind = LALCO.Ada_Anonymous_Type_Decl
-      then
-         if not Base_Type.As_Type_Decl.F_Name.Is_Null then
-            return To_Lower (Image (Base_Type.As_Type_Decl.F_Name.Text));
-         else
-            return "";
-         end if;
+      if T.Is_Null or else T.F_Name.Is_Null then
+         return "";
       else
          declare
-            Name : constant LAL.Unbounded_Text_Type_Array :=
-              Base_Type.P_Fully_Qualified_Name_Array;
+            Is_Standard_Type : constant Boolean :=
+              LAL."=" (T.Unit, T.P_Standard_Unit);
          begin
-            return To_Lower (Image (To_Text (Name (Name'Last))));
+            --  We don't want to prefix standard types with "standard."
+            if Fully_Quallified and then (not Is_Standard_Type) then
+               return To_Lower (Image (T.P_Fully_Qualified_Name));
+            else
+               return  To_Lower (Image (T.F_Name.Text));
+            end if;
          end;
       end if;
-   end Type_Name;
+   end Get_Name;
 
-   function Type_Full_Name (T : LAL.Type_Expr) return String is
-     (To_Lower (Langkit_Support.Text.Image
-      (Designated_Type_Decl (T).P_Fully_Qualified_Name)));
+   function Get_Anonymous_Type_Decl_Name
+     (T                : LAL.Anonymous_Type_Decl;
+      Fully_Quallified : Boolean)
+      return String
+   is
+      Type_Def : constant LAL.Type_Def := T.F_Type_Def;
+   begin
+      case Type_Def.Kind is
+         when LALCO.Ada_Access_To_Subp_Def =>
+            return
+              (case Type_Def.As_Access_To_Subp_Def.F_Subp_Spec.F_Subp_Kind is
+                  when LALCO.Ada_Subp_Kind_Procedure => "procedure",
+                  when LALCO.Ada_Subp_Kind_Function => "function");
+         when LALCO.Ada_Type_Access_Def =>
+            return Get_Subtype_Indication_Name
+              (Type_Def.As_Type_Access_Def.F_Subtype_Indication,
+               Fully_Quallified);
+         when others =>
+            raise Constraint_Error with Type_Def.Kind_Name;
+      end case;
+   end Get_Anonymous_Type_Decl_Name;
+
+   function Get_Type_Decl_Name (T                : LAL.Type_Decl;
+                                Fully_Quallified : Boolean) return String
+   is
+   begin
+      case T.Kind is
+         when LALCO.Ada_Concrete_Type_Decl =>
+            return Get_Name (T, Fully_Quallified);
+         when LALCO.Ada_Formal_Type_Decl =>
+            --  TODO: better handling of generic
+            return Get_Name (T, Fully_Quallified);
+         when LALCO.Ada_Anonymous_Type_Decl =>
+            return Get_Anonymous_Type_Decl_Name (T.As_Anonymous_Type_Decl,
+                                                 Fully_Quallified);
+         when others =>
+            raise Constraint_Error;
+      end case;
+   end Get_Type_Decl_Name;
+
+   function Get_Subtype_Indication_Name
+     (T                : LAL.Subtype_Indication;
+      Fully_Quallified : Boolean)
+      return String
+   is
+      Base_Type : constant LAL.Base_Type_Decl := T.P_Designated_Type_Decl;
+   begin
+      if Base_Type.Is_Null then
+         return "";
+      end if;
+
+      case Base_Type.Kind is
+         when LALCO.Ada_Type_Decl =>
+            return Get_Type_Decl_Name
+              (Base_Type.As_Type_Decl, Fully_Quallified);
+         when LALCO.Ada_Base_Subtype_Decl =>
+            return Get_Name (Base_Type, Fully_Quallified);
+         when LALCO.Ada_Classwide_Type_Decl =>
+            return Get_Name (Base_Type.F_Name.P_Basic_Decl.As_Base_Type_Decl,
+                             Fully_Quallified);
+         when LALCO.Ada_Incomplete_Type_Decl =>
+            raise Constraint_Error;
+         when LALCO.Ada_Protected_Type_Decl =>
+            return Get_Name (Base_Type, Fully_Quallified);
+         when LALCO.Ada_Task_Type_Decl =>
+            return Get_Name (Base_Type, Fully_Quallified);
+         when others =>
+            raise Constraint_Error;
+      end case;
+   end Get_Subtype_Indication_Name;
+
+   function Get_Type_Name (T                : LAL.Type_Expr;
+                           Fully_Quallified : Boolean)
+                       return String
+   is
+      use type LALCO.Ada_Node_Kind_Type;
+   begin
+      case T.Kind is
+         when LALCO.Ada_Anonymous_Type =>
+            return Get_Anonymous_Type_Decl_Name
+              (T.As_Anonymous_Type.F_Type_Decl, Fully_Quallified);
+         when LALCO.Ada_Subtype_Indication =>
+            return Get_Subtype_Indication_Name
+              (T.As_Subtype_Indication,
+               Fully_Quallified);
+         when LALCO.Ada_Synthetic_Type_Expr =>
+            raise Constraint_Error;
+         when LALCO.Ada_Enum_Lit_Synth_Type_Expr =>
+            raise Constraint_Error;
+         when others =>
+            raise Constraint_Error;
+      end case;
+   end Get_Type_Name;
 
    function Get_Arguments_Type_Name
      (Spec : LAL.Subp_Spec;
@@ -72,10 +160,7 @@ package body Fuzzy_Matcher is
       if not Spec.F_Subp_Params.Is_Null then
          for P of Spec.F_Subp_Params.F_Params loop
             Search_Queries.Arguments_Vectors.Append
-              (Args,
-               +(if Fully_Qualified then
-                      Type_Full_Name (P.F_Type_Expr)
-                 else Type_Name (P.F_Type_Expr)));
+              (Args, +Get_Type_Name (P.F_Type_Expr, Fully_Qualified));
          end loop;
       end if;
       return Args;
@@ -83,15 +168,13 @@ package body Fuzzy_Matcher is
 
    function Get_Return_Type_Name (Spec : LAL.Subp_Spec;
                                   Fully_Qualified : Boolean)
-                                  return Ada.Strings.Unbounded.Unbounded_String
+                                  return String
    is
    begin
-      if not Spec.F_Subp_Returns.Is_Null then
-         return +(if Fully_Qualified then
-                     Type_Full_Name (Spec.F_Subp_Returns)
-                  else Type_Name (Spec.F_Subp_Returns));
+      if Spec.F_Subp_Returns.Is_Null then
+         return "";
       else
-         return Ada.Strings.Unbounded.Null_Unbounded_String;
+         return Get_Type_Name (Spec.F_Subp_Returns, Fully_Qualified);
       end if;
    end Get_Return_Type_Name;
 
@@ -164,7 +247,7 @@ package body Fuzzy_Matcher is
 
       Fitness := Fitness +
         Fitness_Type (GNATCOLL.Damerau_Levenshtein_Distance
-                      (-Get_Return_Type_Name (Spec,
+                      (Get_Return_Type_Name (Spec,
                          Search_Query.Use_Fully_Qualified),
                          -Search_Query.Returned_Type));
       return (Subp => Subp,
@@ -193,6 +276,28 @@ package body Fuzzy_Matcher is
 
    end Image;
 
+   procedure Process_Unit (Unit         : LAL.Analysis_Unit;
+                           Search_Query : Search_Queries.Search_Query_Type;
+                           Entries      : in out Entries_Vectors.Vector)
+   is
+   begin
+      case Unit.Root.As_Compilation_Unit.P_Unit_Kind is
+         when LALCO.Unit_Specification =>
+            for N of LALIT.Find (Unit.Root,
+                                 LALIT.Kind_Is (LALCO.Ada_Subp_Decl))
+              .Consume
+            loop
+               declare
+                  New_Entry : constant Entry_Type := Make_Entry
+                    (N.As_Subp_Decl, Search_Query);
+               begin
+                  Entries.Append (New_Entry);
+               end;
+            end loop;
+         when LALCO.Unit_Body => null;
+      end case;
+   end Process_Unit;
+
    -----------
    -- Match --
    -----------
@@ -214,21 +319,15 @@ package body Fuzzy_Matcher is
               LAL.Get_From_File (Context, File_Name);
 
          begin
-            case Unit.Root.As_Compilation_Unit.P_Unit_Kind is
-               when LALCO.Unit_Specification =>
-                  for N of LALIT.Find (Unit.Root,
-                                       LALIT.Kind_Is (LALCO.Ada_Subp_Decl))
-                    .Consume
-                  loop
-                     declare
-                        New_Entry : constant Entry_Type := Make_Entry
-                          (N.As_Subp_Decl, Search_Query);
-                     begin
-                        Entries.Append (New_Entry);
-                     end;
-                  end loop;
-               when LALCO.Unit_Body => null;
-            end case;
+            if Unit.Has_Diagnostics then
+               for D of Unit.Diagnostics loop
+                  Ada.Text_IO.Put_Line
+                    (Ada.Text_IO.Standard_Error,
+                     LAL.Format_GNU_Diagnostic (Unit, D));
+               end loop;
+            else
+               Process_Unit (Unit, Search_Query, Entries);
+            end if;
          end;
       end loop;
 
