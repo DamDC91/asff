@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+_asff_completions()
+{
+    local cur prev opts files
+
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="--help --query --limit-percentage --name-only --version --statistics --project --files"
+
+    # Completion logic for options
+    if [[ ${cur} == -* ]]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+
+    # Specific logic for option arguments
+    case "${prev}" in
+        --query|-q)
+            # Provide syntax for query if needed
+            bind "set completion-display-width 0"
+            COMPREPLY=(
+                "Procedure: (First_Type, Second_Type, ...)"
+                "Function : (First_Type, Second_Type, ...) -> Returned_Type"
+            )
+            return 0
+            ;;
+        --limit-percentage)
+            # Provide a list of common percentage values
+            COMPREPLY=( $(compgen -W "10 20 30 40 50 60 70 80 90 100" -- ${cur}) )
+            return 0
+            ;;
+        --statistics)
+            # Suggest files in the current directory for statistics
+            files=$(compgen -f -- ${cur})
+            COMPREPLY=( ${files} )
+            return 0
+            ;;
+        --project|-P)
+            # Suggest project files in the current directory
+            files=$(compgen -f -- ${cur} | grep '\.gpr$')
+            COMPREPLY=( ${files} )
+            return 0
+            ;;
+        --files|-f)
+            # Suggest files in the current directory for analysis
+            files=$(compgen -f -- ${cur} | grep '\.ad[sb]$')
+            COMPREPLY=( ${files} )
+            return 0
+            ;;
+    esac
+
+    return 0
+}
+
+complete -F _asff_completions asff
+
