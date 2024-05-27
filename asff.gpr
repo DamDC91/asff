@@ -12,7 +12,7 @@ project Asff is
    end Compiler;
 
    package Binder is
-      for Switches ("Ada") use ("-Es"); --  Symbolic traceback
+      for Switches ("Ada") use ("-Es", "-static"); --  Symbolic traceback
    end Binder;
 
    package Install is

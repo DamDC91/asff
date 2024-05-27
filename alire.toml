@@ -1,8 +1,8 @@
 name = "asff"
 description = "ada subprogram fuzzy finder"
-version = "0.1.0-dev"
+version = "0.1.0"
 
-authors = ["Damien"]
+authors = ["Damien De Campos"]
 maintainers = ["Damien <damiensporting@gmail.com>"]
 maintainers-logins = ["DamDC91"]
 

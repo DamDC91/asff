@@ -12,6 +12,7 @@ with Asff_Config;
 with Asff_Args;
 with Ada.Unchecked_Conversion;
 with GNAT.OS_Lib;
+with GNAT.Traceback.Symbolic;
 
 procedure Asff is
 
@@ -88,8 +89,8 @@ begin
                                      Print_Help => True);
             end if;
 
-            if not Query_Result.Valid then
-               Print_Error_And_Exit (Error_Msg => "invalid query: " &
+            if not Is_Empty (Args.Query) and then not Query_Result.Valid then
+               Print_Error_And_Exit (Error_Msg =>
                                        To_Str (Query_Result.Error_Msg),
                                      Print_Help => True);
             end if;
@@ -146,4 +147,9 @@ begin
       end if;
    end;
 
+exception
+   when E : others =>
+      Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error,
+                            GNAT.Traceback.Symbolic.Symbolic_Traceback (E));
+      GNAT.OS_Lib.OS_Exit (1);
 end Asff;
