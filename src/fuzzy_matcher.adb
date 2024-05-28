@@ -146,7 +146,7 @@ package body Fuzzy_Matcher is
 
    function Get_Type_Name (T                : LAL.Type_Expr;
                            Fully_Quallified : Boolean)
-                       return String
+                           return String
    is
       use type LALCO.Ada_Node_Kind_Type;
    begin
@@ -305,12 +305,14 @@ package body Fuzzy_Matcher is
                                  LALIT.Kind_Is (LALCO.Ada_Subp_Decl))
               .Consume
             loop
-               declare
-                  New_Entry : constant Entry_Type := Make_Entry
-                    (N.As_Subp_Decl, Search_Query);
-               begin
-                  Entries.Append (New_Entry);
-               end;
+               if N.As_Subp_Decl.P_Is_Visible (N.Unit.Root) then
+                  declare
+                     New_Entry : constant Entry_Type := Make_Entry
+                       (N.As_Subp_Decl, Search_Query);
+                  begin
+                     Entries.Append (New_Entry);
+                  end;
+               end if;
             end loop;
          when LALCO.Unit_Body => null;
       end case;
