@@ -100,13 +100,15 @@ package body Fuzzy_Matcher is
       Fully_Quallified : Boolean)
       return String
    is
-      Base_Type : constant LAL.Base_Type_Decl := T.P_Designated_Type_Decl;
    begin
-      if Base_Type.Is_Null then
-         return "";
-      end if;
+      declare
+         Base_Type : constant LAL.Base_Type_Decl := T.P_Designated_Type_Decl;
+      begin
+         if Base_Type.Is_Null then
+            return "";
+         end if;
 
-      case Base_Type.Kind is
+         case Base_Type.Kind is
          when LALCO.Ada_Type_Decl =>
             return Get_Type_Decl_Name
               (Base_Type.As_Type_Decl, Fully_Quallified);
@@ -123,7 +125,23 @@ package body Fuzzy_Matcher is
             return Get_Name (Base_Type, Fully_Quallified);
          when others =>
             raise Constraint_Error;
-      end case;
+         end case;
+      exception
+         when others =>
+            declare
+               use Langkit_Support.Text;
+            begin
+               --  TODO: Name resoluting bug ?
+               Ada.Text_IO.Put_Line ("Name resolution bug: " &
+                                       Image (T.Full_Sloc_Image));
+
+               if not Fully_Quallified and then not T.F_Name.Is_Null then
+                  return To_Lower (Image (T.F_Name.Text));
+               else
+                  return "";
+               end if;
+            end;
+      end;
    end Get_Subtype_Indication_Name;
 
    function Get_Type_Name (T                : LAL.Type_Expr;
