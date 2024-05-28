@@ -8,6 +8,6 @@ maintainers-logins = ["DamDC91"]
 
 executables = ["asff"]
 [[depends-on]]
-libadalang = "^23.0.0"
+libadalang = "^24.0.0"
 [[depends-on]]
-gnatcoll = "^23.0.0"
+gnatcoll = "^24.0.0"
