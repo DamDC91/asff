@@ -97,7 +97,7 @@ package body Search_Queries is
       if not Args_Success then
          return (Valid => False,
                 Error_Msg => Ada.Strings.Unbounded.To_Unbounded_String
-                   ("Arguments type must be Ada identifier only, no 'access',"
+                   ("Arguments type must be an Ada identifier. No 'access',"
                     & " ''class', 'in out'...)"));
       end if;
 
@@ -113,8 +113,8 @@ package body Search_Queries is
                   return (Valid     => False,
                           Error_Msg =>
                             Ada.Strings.Unbounded.To_Unbounded_String
-                              ("Returned type must be Ada identifier only,"
-                               & " no 'access', ''class'...)"));
+                              ("Returned type must be an Ada identifier."
+                               & " No 'access', ''class'...)"));
                end if;
             end;
          else

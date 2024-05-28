@@ -85,7 +85,7 @@ begin
                Percentage := Natural'Value (To_Str (Args.Limit_Percentage));
             else
                Print_Error_And_Exit (Error_Msg =>
-                                       "--limit-percentage must be a number",
+                                       "Limit percentage must be a number",
                                      Print_Help => True);
             end if;
 
@@ -122,7 +122,8 @@ begin
                      Libadalang.Project_Provider.Root_Project);
                else
                   Print_Error_And_Exit (Error_Msg =>
-                                          "files or project must be provided",
+                                          "Sources files or project file " &
+                                          "must be provided",
                                         Print_Help => True);
                end if;
 

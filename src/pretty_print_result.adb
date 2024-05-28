@@ -73,7 +73,7 @@ package body Pretty_Print_Result is
       Ada.Text_IO.Close (F);
    exception
       when E : others =>
-         Ada.Text_IO.Put_Line ("Fail to write statistics in " & File_Name &
+         Ada.Text_IO.Put_Line ("Unable to write statistics to " & File_Name &
                                  ": " & Ada.Exceptions.Exception_Message (E));
          Ada.Command_Line.Set_Exit_Status (1);
    end Print_Statistic;
