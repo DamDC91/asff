@@ -7,9 +7,13 @@ generic
      (Index_Type => <>,
       Element_Type => Ada.Strings.Unbounded.Unbounded_String,
       "=" => <>);
-package Damerau_Levenshtein_Matrix is
+   type Similarity_Score_Type is digits <>;
+   with function Compure_Similarity (S1 : String; S2 : String)
+   return Similarity_Score_Type;
+package Optimal_Word_Pair_Similarity_Solver is
 
-   type Damerau_Levenshtein_Distance_Type is new Natural;
+   --  This package finds the optimal pairs of words between two lists based
+   --  on their similarity scores.
 
    type Row_Index_Type is new Natural range 0 .. Max_Size;
 
@@ -17,11 +21,12 @@ package Damerau_Levenshtein_Matrix is
 
    type Matrix_Type is array
      (Row_Index_Type range <>,
-      Col_Index_Type range <>) of Damerau_Levenshtein_Distance_Type;
+      Col_Index_Type range <>) of Similarity_Score_Type;
 
-   function Compute_Matrix (L : String_Vector.Vector;
-                            R : String_Vector.Vector)
-                            return Matrix_Type;
+   function Compute_Similarity_Matrix
+     (L : String_Vector.Vector;
+      R : String_Vector.Vector)
+      return Matrix_Type;
 
    type Indices_Pair_Type is record
       Row : Row_Index_Type;
@@ -33,7 +38,7 @@ package Damerau_Levenshtein_Matrix is
    type Result_Indices_Type is array (Result_Index_Type range <>)
      of Indices_Pair_Type;
 
-   function Compute_Minimun_Distance (Matrix : Matrix_Type)
-                                      return Result_Indices_Type;
+   function Find_Optimal_Pairs (Matrix : Matrix_Type)
+                                return Result_Indices_Type;
 
-end Damerau_Levenshtein_Matrix;
+end Optimal_Word_Pair_Similarity_Solver;

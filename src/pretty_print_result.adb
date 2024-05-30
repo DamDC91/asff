@@ -30,16 +30,17 @@ package body Pretty_Print_Result is
 
    procedure Print_Result (Results    : Fuzzy_Matcher.Entries_Vectors.Vector;
                            Name_Only  : Boolean;
-                           Percentage : Natural)
+                           Percentage : Percentage_Type)
    is
-      Percentage_Float : constant Float := 1.0 + (Float (Percentage) / 100.0);
-      use type Fuzzy_Matcher.Fitness_Type;
-      Last : constant Fuzzy_Matcher.Fitness_Type :=
-        Fuzzy_Matcher.Fitness_Type (Float (Results.First_Element.Fitness)
-                                    * Percentage_Float);
+      Percentage_Float : constant Fuzzy_Matcher.Similarity_Probability_Type :=
+        Fuzzy_Matcher.Similarity_Probability_Type (Float (Percentage) / 100.0);
+
+      use type Fuzzy_Matcher.Similarity_Probability_Type;
+      Threshold : constant Fuzzy_Matcher.Similarity_Probability_Type :=
+        Results.First_Element.Similarity * Percentage_Float;
    begin
       for R of Results loop
-         if R.Fitness > Last then
+         if R.Similarity < Threshold then
             exit;
          end if;
          if Name_Only then
@@ -65,7 +66,7 @@ package body Pretty_Print_Result is
       for R of Results loop
          declare
             Fitness : constant String := Ada.Strings.Fixed.Trim
-              (R.Fitness'Img, Ada.Strings.Both);
+              (R.Similarity'Img, Ada.Strings.Both);
          begin
             Ada.Text_IO.Put_Line (F, Fitness & " " & Image_Name_Only (R));
          end;

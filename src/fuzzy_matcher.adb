@@ -1,3 +1,4 @@
+pragma Ada_2022;
 with Libadalang.Common;
 with Libadalang.Iterators;
 with Langkit_Support.Text;
@@ -5,8 +6,9 @@ with GNATCOLL.Damerau_Levenshtein_Distance;
 with Ada.Containers;
 with Ada.Strings.Unbounded;
 with Ada.Characters.Handling;
-with Damerau_Levenshtein_Matrix;
+with Optimal_Word_Pair_Similarity_Solver;
 with Ada.Text_IO;
+with Langkit_Support.Errors;
 
 package body Fuzzy_Matcher is
 
@@ -126,22 +128,22 @@ package body Fuzzy_Matcher is
          when others =>
             raise Constraint_Error;
          end case;
-      exception
-         when others =>
-            declare
-               use Langkit_Support.Text;
-            begin
-               --  TODO: Name resoluting bug ?
-               Ada.Text_IO.Put_Line ("Name resolution bug: " &
-                                       Image (T.Full_Sloc_Image));
-
-               if not Fully_Quallified and then not T.F_Name.Is_Null then
-                  return To_Lower (Image (T.F_Name.Text));
-               else
-                  return "";
-               end if;
-            end;
       end;
+   exception
+      when LANGKIT_SUPPORT.ERRORS.PROPERTY_ERROR =>
+         declare
+            use Langkit_Support.Text;
+         begin
+            --  TODO: Name resoluting bug ?
+            Ada.Text_IO.Put_Line ("Name resolution bug: " &
+                                    Image (T.Full_Sloc_Image));
+
+            if not Fully_Quallified and then not T.F_Name.Is_Null then
+               return To_Lower (Image (T.F_Name.Text));
+            else
+               return "";
+            end if;
+         end;
    end Get_Subtype_Indication_Name;
 
    function Get_Type_Name (T                : LAL.Type_Expr;
@@ -196,86 +198,117 @@ package body Fuzzy_Matcher is
       end if;
    end Get_Return_Type_Name;
 
-   function Compute_Arguments_Fitness
+   function Compute_Similarity (S1 : String; S2 : String)
+                                return Similarity_Probability_Type
+   is
+      Edit_Distance : constant Natural := GNATCOLL.Damerau_Levenshtein_Distance
+        (S1, S2);
+      Distance_Max  : constant Natural := Integer'Max (S1'Length, S2'Length);
+   begin
+      if Distance_Max = 0 then
+         return 0.0;
+      end if;
+      if Edit_Distance = 0 then
+         return 1.0;
+      end if;
+      return Similarity_Probability_Type (1.0 - (Float (Edit_Distance)
+                                          / Float (Distance_Max)));
+   end Compute_Similarity;
+
+   function Compute_Arguments_Similarity
      (Subp_Args : Search_Queries.Arguments_Vectors.Vector;
       Search_Args : Search_Queries.Arguments_Vectors.Vector)
-      return Fitness_Type
+      return Similarity_Probability_Type
    is
-      package Distance_Matrix is new Damerau_Levenshtein_Matrix
+      package Distance_Matrix is new Optimal_Word_Pair_Similarity_Solver
         (Max_Size => 50,
-         String_Vector => Search_Queries.Arguments_Vectors);
+         String_Vector => Search_Queries.Arguments_Vectors,
+         Similarity_Score_Type => Similarity_Probability_Type,
+         Compure_Similarity => Compute_Similarity);
 
       Matrix : constant Distance_Matrix.Matrix_Type :=
-        Distance_Matrix.Compute_Matrix (Subp_Args, Search_Args);
+        Distance_Matrix.Compute_Similarity_Matrix (Subp_Args, Search_Args);
 
       Indicies : constant Distance_Matrix.Result_Indices_Type :=
-        Distance_Matrix.Compute_Minimun_Distance (Matrix);
+        Distance_Matrix.Find_Optimal_Pairs (Matrix);
 
-      Fitness : Fitness_Type := 0;
+      Similarity  : Similarity_Probability_Type := 1.0;
+
       use type Ada.Containers.Count_Type;
       use Distance_Matrix;
    begin
-      for I of Indicies loop
-         Fitness := Fitness + Fitness_Type (Matrix (I.Row, I.Col));
-      end loop;
-
-      if Subp_Args.Length < Search_Args.Length then
-         for J in 1 .. Search_Args.Length loop
-            if (for all P of Indicies => Col_Index_Type (J) /= P.Col) then
-               declare
-                  use Ada.Strings.Unbounded;
-                  Arg : constant Unbounded_String :=
-                    Search_Args.Element (Positive (J));
-               begin
-                  Fitness := Fitness + Fitness_Type (Length (Arg));
-               end;
-            end if;
-         end loop;
-
-      elsif Subp_Args.Length > Search_Args.Length then
-         for I in 1 .. Subp_Args.Length loop
-            if (for all P of Indicies => Row_Index_Type (I) /= P.Row) then
-               declare
-                  use Ada.Strings.Unbounded;
-                  Arg : constant Unbounded_String :=
-                    Subp_Args.Element (Positive (I));
-               begin
-                  Fitness := Fitness + Fitness_Type (Length (Arg));
-               end;
-            end if;
-         end loop;
+      if Indicies'Length = 0 then
+         return 0.0;
       end if;
 
-      return Fitness;
-   end Compute_Arguments_Fitness;
+      for I of Indicies loop
+         Similarity := Similarity * Matrix (I.Row, I.Col);
+      end loop;
+
+      if Subp_Args.Length /= Search_Args.Length then
+         declare
+            Max : constant Ada.Containers.Count_Type :=
+              Ada.Containers.Count_Type'Max
+                (Subp_Args.Length, Search_Args.Length);
+            Min : constant Ada.Containers.Count_Type :=
+              Ada.Containers.Count_Type'Min
+                (Subp_Args.Length, Search_Args.Length);
+         begin
+            Similarity := Similarity *
+              Similarity_Probability_Type (Float (Min) / Float (Max));
+         end;
+      end if;
+
+      return Similarity;
+   end Compute_Arguments_Similarity;
 
    function Make_Entry (Subp : LAL.Subp_Decl;
                         Search_Query : Search_Queries.Search_Query_Type)
                         return Entry_Type
    is
-      Args      : Search_Queries.Arguments_Vectors.Vector;
-      Fitness   : Fitness_Type := 0;
-      Spec      : constant LAL.Subp_Spec := Subp.F_Subp_Spec;
+      Args              : Search_Queries.Arguments_Vectors.Vector;
+      Args_Similarity   : Similarity_Probability_Type := 0.0;
+      Return_Similarity : Similarity_Probability_Type := 0.0;
+      Spec              : constant LAL.Subp_Spec := Subp.F_Subp_Spec;
+      Nb_Args_In_Search : constant Natural := Natural (Search_Query.Arguments_Type.Length);
    begin
       Args := Get_Arguments_Type_Name
         (Spec,
          Search_Query.Use_Fully_Qualified);
 
-      Fitness := Compute_Arguments_Fitness (Args, Search_Query.Arguments_Type);
+      Args_Similarity := Compute_Arguments_Similarity
+        (Args, Search_Query.Arguments_Type);
 
-      Fitness := Fitness +
-        Fitness_Type (GNATCOLL.Damerau_Levenshtein_Distance
-                      (Get_Return_Type_Name (Spec,
-                         Search_Query.Use_Fully_Qualified),
-                         -Search_Query.Returned_Type));
-      return (Subp => Subp,
-              Fitness => Fitness);
+      declare
+         Returned_Type : constant String := Get_Return_Type_Name
+           (Spec, Search_Query.Use_Fully_Qualified);
+         package Unb renames Ada.Strings.Unbounded;
+      begin
+         if Unb.Length (Search_Query.Returned_Type) = 0
+           or else Returned_Type'Length = 0
+         then
+            Return_Similarity := Compute_Similarity
+              (Returned_Type,
+               -Search_Query.Returned_Type);
+         end if;
+      end;
+
+      declare
+         Global_Similarity : constant Float :=
+           (Float (Args_Similarity) * Float (Nb_Args_In_Search) +
+                Float (Return_Similarity))
+             / Float (Nb_Args_In_Search + 1);
+      begin
+         return (Subp       => Subp,
+                 Similarity =>
+                   Similarity_Probability_Type (Global_Similarity));
+      end;
    end Make_Entry;
 
    procedure Sort_Entries (Entries : in out Entries_Vectors.Vector)
    is
       function Compare (L, R : Entry_Type) return Boolean is
-        (L.Fitness < R.Fitness);
+        (L.Similarity > R.Similarity);
 
       package Sorting is new Entries_Vectors.Generic_Sorting (Compare);
    begin
@@ -299,23 +332,35 @@ package body Fuzzy_Matcher is
                            Entries      : in out Entries_Vectors.Vector)
    is
    begin
-      case Unit.Root.As_Compilation_Unit.P_Unit_Kind is
-         when LALCO.Unit_Specification =>
-            for N of LALIT.Find (Unit.Root,
-                                 LALIT.Kind_Is (LALCO.Ada_Subp_Decl))
-              .Consume
-            loop
-               if N.As_Subp_Decl.P_Is_Visible (N.Unit.Root) then
-                  declare
-                     New_Entry : constant Entry_Type := Make_Entry
-                       (N.As_Subp_Decl, Search_Query);
-                  begin
-                     Entries.Append (New_Entry);
-                  end;
-               end if;
-            end loop;
-         when LALCO.Unit_Body => null;
+      case Unit.Root.Kind is
+         when LALCO.Ada_Compilation_Unit =>
+            case Unit.Root.As_Compilation_Unit.P_Unit_Kind is
+            when LALCO.Unit_Specification =>
+               for N of LALIT.Find (Unit.Root,
+                                    LALIT.Kind_Is (LALCO.Ada_Subp_Decl))
+                 .Consume
+               loop
+                  if N.As_Subp_Decl.P_Is_Visible (N.Unit.Root) then
+                     declare
+                        New_Entry : constant Entry_Type := Make_Entry
+                          (N.As_Subp_Decl, Search_Query);
+                     begin
+                        Entries.Append (New_Entry);
+                     end;
+                  end if;
+               end loop;
+            when LALCO.Unit_Body => null;
+            end case;
+         when LALCO.Ada_Pragma_Node_List =>
+            null;
+         when others =>
+            raise Constraint_Error with "Unknow file";
       end case;
+   exception
+      when others =>
+         Ada.Text_IO.Put_Line (Unit.Get_Filename);
+         Unit.Print;
+         raise;
    end Process_Unit;
 
    -----------
@@ -337,7 +382,6 @@ package body Fuzzy_Matcher is
               Ada.Strings.Unbounded.To_String (File);
             Unit : constant LAL.Analysis_Unit :=
               LAL.Get_From_File (Context, File_Name);
-
          begin
             if Unit.Has_Diagnostics then
                for D of Unit.Diagnostics loop

@@ -13,6 +13,7 @@ with Asff_Args;
 with Ada.Unchecked_Conversion;
 with GNAT.OS_Lib;
 with GNAT.Traceback.Symbolic;
+with Ada.Exceptions;
 
 procedure Asff is
 
@@ -83,6 +84,11 @@ begin
                   Ada.Characters.Handling.Is_Digit (C))
             then
                Percentage := Natural'Value (To_Str (Args.Limit_Percentage));
+               if Percentage > 100 then
+                  Print_Error_And_Exit (Error_Msg =>
+                                       "Limit percentage maximum value is 100",
+                                     Print_Help => True);
+               end if;
             else
                Print_Error_And_Exit (Error_Msg =>
                                        "Limit percentage must be a number",
@@ -104,8 +110,8 @@ begin
                if not Is_Empty (Args.Project) then
                   Libadalang.Helpers.Load_Project
                     (Project_File => To_Str (Args.Project),
-                     Project => Tree,
-                     Env =>  Env);
+                     Project      => Tree,
+                     Env          =>  Env);
 
                   Ctx := LAL.Create_Context
                     (Unit_Provider =>
@@ -119,7 +125,7 @@ begin
                elsif not Is_Empty (Args.Project) then
                   Files := Libadalang.Project_Provider.Source_Files
                     (Tree.all,
-                     Libadalang.Project_Provider.Root_Project);
+                     Libadalang.Project_Provider.Whole_Project_With_Runtime);
                else
                   Print_Error_And_Exit (Error_Msg =>
                                           "Sources files or project file " &
@@ -130,16 +136,19 @@ begin
                declare
                   Result : constant Fuzzy_Matcher.Entries_Vectors.Vector :=
                     Fuzzy_Matcher.Match
-                      (Files => Files,
-                       Context => Ctx,
+                      (Files        => Files,
+                       Context      => Ctx,
                        Search_Query => Query_Result.Query);
                begin
-                  Pretty_Print_Result.Print_Result (Result,
-                                                    Args.Name_Only,
-                                                    Percentage);
+                  Pretty_Print_Result.Print_Result
+                    (Results    => Result,
+                     Name_Only  => Args.Name_Only,
+                     Percentage => Pretty_Print_Result.Percentage_Type
+                       (Percentage));
+
                   if Should_Print_Statistics then
                      Pretty_Print_Result.Print_Statistic
-                       (Results => Result,
+                       (Results   => Result,
                         File_Name => To_Str (Args.Statistics));
                   end if;
                end;
@@ -150,6 +159,10 @@ begin
 
 exception
    when E : others =>
+      Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error,
+                            Ada.Exceptions.Exception_Name (E) & ":" &
+                              Ada.Exceptions.Exception_Message (E));
+
       Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error,
                             GNAT.Traceback.Symbolic.Symbolic_Traceback (E));
       GNAT.OS_Lib.OS_Exit (1);

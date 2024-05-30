@@ -5,11 +5,11 @@ with Libadalang.Project_Provider;
 
 package Fuzzy_Matcher is
 
-   type Fitness_Type is new Integer;
+   type Similarity_Probability_Type is new Float range 0.0 .. 1.0;
 
    type Entry_Type is record
-      Subp    : Libadalang.Analysis.Subp_Decl;
-      Fitness : Fitness_Type;
+      Subp       : Libadalang.Analysis.Subp_Decl;
+      Similarity : Similarity_Probability_Type;
    end record;
 
    function Image (E : Entry_Type) return String;

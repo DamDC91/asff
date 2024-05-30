@@ -1,6 +1,4 @@
-with GNATCOLL.Damerau_Levenshtein_Distance;
-
-package body Damerau_Levenshtein_Matrix is
+package body Optimal_Word_Pair_Similarity_Solver is
 
    function "-" (S : Ada.Strings.Unbounded.Unbounded_String) return String
                  renames Ada.Strings.Unbounded.To_String;
@@ -9,7 +7,7 @@ package body Damerau_Levenshtein_Matrix is
    -- Compute_Matrix --
    --------------------
 
-   function Compute_Matrix
+   function Compute_Similarity_Matrix
      (L : String_Vector.Vector; R : String_Vector.Vector) return Matrix_Type
    is
       Matrix : Matrix_Type (1 .. Row_Index_Type (String_Vector.Length (L)),
@@ -17,21 +15,24 @@ package body Damerau_Levenshtein_Matrix is
    begin
       for I in Matrix'Range (1) loop
          for J in Matrix'Range (2) loop
-            Matrix (I, J) :=
-              Damerau_Levenshtein_Distance_Type
-                (GNATCOLL.Damerau_Levenshtein_Distance
-                   (-L.Element (String_Vector.Index_Type (I)),
-                    -R.Element (String_Vector.Index_Type (J))));
+            declare
+               S1 : constant String := -L.Element
+                 (String_Vector.Index_Type (I));
+               S2 : constant String := -R.Element
+                 (String_Vector.Index_Type (J));
+            begin
+               Matrix (I, J) := Compure_Similarity (S1, S2);
+            end;
          end loop;
       end loop;
       return Matrix;
-   end Compute_Matrix;
+   end Compute_Similarity_Matrix;
 
    ------------------------------
    -- Compute_Minimun_Distance --
    ------------------------------
 
-   function Compute_Minimun_Distance (Matrix : Matrix_Type)
+   function Find_Optimal_Pairs (Matrix : Matrix_Type)
                                       return Result_Indices_Type
    is
       Lowest_Dim : constant Natural :=
@@ -47,10 +48,10 @@ package body Damerau_Levenshtein_Matrix is
         Result_Indices'First .. Result_Index_Type (Lowest_Dim)
       loop
          declare
-            Min_I : Row_Index_Type;
-            Min_J : Col_Index_Type;
-            Min   : Damerau_Levenshtein_Distance_Type :=
-              Damerau_Levenshtein_Distance_Type'Last;
+            Max_I : Row_Index_Type;
+            Max_J : Col_Index_Type;
+            Max   : Similarity_Score_Type :=
+              Similarity_Score_Type'First;
             pragma Warnings
               (Off,
                """Result_Indices"" may be referenced before it has a value");
@@ -58,23 +59,23 @@ package body Damerau_Levenshtein_Matrix is
             for I in Matrix'Range (1) loop
                for J in Matrix'Range (2) loop
 
-                  if Matrix (I, J) < Min and then
+                  if Matrix (I, J) >= Max and then
                     (for all P in Result_Indices'First .. Step - 1 =>
                        I /= Result_Indices (P).Row and then
                      J /= Result_Indices (P).Col)
                   then
-                     Min_I := I;
-                     Min_J := J;
-                     Min   := Matrix (I, J);
+                     Max_I := I;
+                     Max_J := J;
+                     Max   := Matrix (I, J);
                   end if;
                end loop;
             end loop;
-            Result_Indices (Step) := (Row => Min_I, Col => Min_J);
+            Result_Indices (Step) := (Row => Max_I, Col => Max_J);
          end;
          pragma Warnings
            (On, """Result_Indices"" may be referenced before it has a value");
       end loop;
       return Result_Indices;
-   end Compute_Minimun_Distance;
+   end Find_Optimal_Pairs;
 
-end Damerau_Levenshtein_Matrix;
+end Optimal_Word_Pair_Similarity_Solver;
