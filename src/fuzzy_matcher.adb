@@ -284,8 +284,8 @@ package body Fuzzy_Matcher is
            (Spec, Search_Query.Use_Fully_Qualified);
          package Unb renames Ada.Strings.Unbounded;
       begin
-         if Unb.Length (Search_Query.Returned_Type) = 0
-           or else Returned_Type'Length = 0
+         if Unb.Length (Search_Query.Returned_Type) /= 0
+           and then Returned_Type'Length /= 0
          then
             Return_Similarity := Compute_Similarity
               (Returned_Type,

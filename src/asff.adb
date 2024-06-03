@@ -84,7 +84,9 @@ begin
                   Ada.Characters.Handling.Is_Digit (C))
             then
                Percentage := Natural'Value (To_Str (Args.Limit_Percentage));
-               if Percentage > 100 then
+               if Percentage >
+                 Natural (Pretty_Print_Result.Percentage_Type'Last)
+               then
                   Print_Error_And_Exit (Error_Msg =>
                                        "Limit percentage maximum value is 100",
                                      Print_Help => True);
@@ -124,8 +126,11 @@ begin
                   Files := Conversion (Args.Files);
                elsif not Is_Empty (Args.Project) then
                   Files := Libadalang.Project_Provider.Source_Files
-                    (Tree.all,
-                     Libadalang.Project_Provider.Whole_Project_With_Runtime);
+                    (Tree => Tree.all,
+                     Mode =>
+                       (if Args.Recursive then
+                             Libadalang.Project_Provider.Default
+                        else Libadalang.Project_Provider.Root_Project));
                else
                   Print_Error_And_Exit (Error_Msg =>
                                           "Sources files or project file " &

@@ -26,9 +26,9 @@ package body Asff_Args is
         (Parser,
          Long        => "--limit-percentage",
          Arg_Type    => Unbounded_String,
-         Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("20"),
+         Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("10"),
          Help        => "Display matches with scores above the given"
-         & " percentage of the top score. Default value is 20%.");
+         & " percentage of the top score. Default value is 10%.");
 
       package Name_Only_Flag is new Parse_Flag
         (Parser,
@@ -60,6 +60,12 @@ package body Asff_Args is
          Arg_Type    => Unbounded_String,
          Help        => "Files to analyze");
 
+      package Recursive_Flag is new Parse_Flag
+        (Parser, "-U", "--recursive",
+         Help =>
+            "Process all units in the project tree, excluding externally"
+         & " built projects.");
+
    end Opt_Args;
 
    ---------------------
@@ -88,7 +94,8 @@ package body Asff_Args is
                   Version          => Opt_Args.Version_Flag.Get,
                   Statistics       => Opt_Args.Statistics_Option.Get,
                   Project          => Opt_Args.Project_File_Option.Get,
-                  Files            => Vector_Files));
+                  Files            => Vector_Files,
+                  Recursive        => Opt_Args.Recursive_Flag.Get));
          end;
       else
          return (Success => False);

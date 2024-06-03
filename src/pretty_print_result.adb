@@ -33,12 +33,14 @@ package body Pretty_Print_Result is
                            Percentage : Percentage_Type)
    is
       Percentage_Float : constant Fuzzy_Matcher.Similarity_Probability_Type :=
-        Fuzzy_Matcher.Similarity_Probability_Type (Float (Percentage) / 100.0);
+        Fuzzy_Matcher.Similarity_Probability_Type
+          (1.0 - (Float (Percentage) / 100.0));
 
       use type Fuzzy_Matcher.Similarity_Probability_Type;
       Threshold : constant Fuzzy_Matcher.Similarity_Probability_Type :=
         Results.First_Element.Similarity * Percentage_Float;
    begin
+
       for R of Results loop
          if R.Similarity < Threshold then
             exit;

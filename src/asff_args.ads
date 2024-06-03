@@ -16,6 +16,7 @@ package Asff_Args is
       Statistics       : Ada.Strings.Unbounded.Unbounded_String;
       Project          : Ada.Strings.Unbounded.Unbounded_String;
       Files            : Filename_Vectors.Vector;
+      Recursive        : Boolean;
    end record;
 
    type Parsed_Arguments (Success : Boolean) is record
