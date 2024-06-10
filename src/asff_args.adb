@@ -28,7 +28,7 @@ package body Asff_Args is
          Arg_Type    => Unbounded_String,
          Default_Val => Ada.Strings.Unbounded.To_Unbounded_String ("10"),
          Help        => "Display matches with scores above the given"
-         & " percentage of the top score. Default value is 10%.");
+         & " percentage of the top score. Default value is 10%");
 
       package Name_Only_Flag is new Parse_Flag
         (Parser,
@@ -47,7 +47,7 @@ package body Asff_Args is
          Long        => "--statistics",
          Arg_Type    => Unbounded_String,
          Default_Val => Ada.Strings.Unbounded.Null_Unbounded_String,
-         Help        => "Statistics file name.");
+         Help        => "Statistics file name");
 
       package Project_File_Option is new Parse_Option
         (Parser, "-P", "--project",
@@ -64,7 +64,7 @@ package body Asff_Args is
         (Parser, "-U", "--recursive",
          Help =>
             "Process all units in the project tree, excluding externally"
-         & " built projects.");
+         & " built projects");
 
    end Opt_Args;
 

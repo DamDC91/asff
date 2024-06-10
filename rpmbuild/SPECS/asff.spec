@@ -1,13 +1,13 @@
 Name:           asff
 Version:        %{?VERSION}
 Release:        1%{?dist}
-Summary:        Ada executable and GNATstudio plugin
+Summary:        asff binary and GNATstudio plugin
 License:        GPL
 URL:            http://example.com/
 Source0:        %{name}-%{version}.tar.gz
 
 %description
-This package provides an Ada executable and a GNATstudio plugin.
+This package provides an asff binary and a GNATstudio plugin.
 
 %prep
 %setup -q
@@ -37,6 +37,5 @@ echo 'export GNATSTUDIO_CUSTOM_PATH+=":%{_datadir}/gnatstudio/plug-ins/"' >> %{b
 %{_sysconfdir}/profile.d/asff_env.sh
 
 %changelog
-* Mon May 20 2024 Damien De Campos <damiensporting@gmail.com> - 1.0-1
+* Mon June 10 2024 Damien De Campos <damiensporting@gmail.com> - 1.0-1
 - Initial package
-
