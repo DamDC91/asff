@@ -16,7 +16,7 @@ asff (Ada Subprogram Fuzzy Finder) is a tool designed to help finding Ada subpro
 
 Asff (Ada Subprogram Fuzzy Finder) is a command-line tool developed to help finding Ada subprograms based on their signatures.
 By providing the arguments and returned types of a subprogram, asff helps Ada developers quickly identify and navigate to the relevant code within their projects.
-Ada's powerful type system encourages the use of highly specific types for distinct use cases.
+Ada powerful type system encourages the use of highly specific types for distinct use cases.
 This makes the language well-suited for signature fuzzy matching.
 
 This project uses the Libadalang library for analyzing Ada code and the Alire ecosystem for managing dependencies and build environment.
@@ -72,11 +72,11 @@ optional arguments:
 
 ### Examples
 
-In alire enviroment you need to use the `alr exec` command to run asff.
+In alire enviroment you need to use the `alr exec` command or source the environment yourself before running asff.
 The following examples are from the alire project.
 
 ```bash
-$ alr exec -- ./../asff/bin/asff -P alire.gpr -q "(Crate) -> Name"
+$ alr exec -- asff -P alire.gpr -q "(Crate) -> Name"
 alire-crates.ads:38:4: function Name (This : Crate) return Crate_Name;
 alire-crates.ads:49:4: function Base (This : Crate) return Releases.Release
      with Pre => not This.Externals.Is_Empty;
@@ -85,7 +85,7 @@ alire-crates.ads:49:4: function Base (This : Crate) return Releases.Release
 Sometimes using fully qualified type names give better resutls:
 
 ```bash
-$ alr exec -- ../asff/bin/asff -q "(Crate) -> Dependencies.Dependency" -P alire.gpr 
+$ alr exec -- asff -P alire.gpr -q "(Crate) -> Dependencies.Dependency"
 alire-toolchains.ads:25:4: function Any_Tool (Crate : Crate_Name) return Dependencies.Dependency;
 alire-toolchains.ads:51:4: function Tool_Dependency (Crate : Crate_Name) return Dependencies.Dependency
      with Pre => Tool_Is_Configured (Crate);
@@ -94,11 +94,17 @@ alire-toolchains.ads:51:4: function Tool_Dependency (Crate : Crate_Name) return 
 For a better user experience with the command line interface, I advise you to source [asff_completion](completion/asff_completion)
 
 
-## GNAT Studio Plugin
+## GNAT Studio Plugin
 
 A plugin for the GNAT Studio IDE is available to integrate asff into your development workflow.
-Currently, it lacks functionalities and customization features, but development is ongoing, and improvements are on the way."
+Currently, it lacks functionalities and customization features, but development is ongoing, and improvements are on the way.
 
-## License
+![](demo/asff.gif)
+
+### Plugin installation from sources
+
+To install the plugin from sources you need to add the asff binary to the `PATH` and the [plugin](plugin/) folder to the `GNATSTUDIO_CUSTOM_PATH` variable environment.
+
+## License
 
 asff is licensed under the GNU GPLv3.0. See the LICENSE file for details.
