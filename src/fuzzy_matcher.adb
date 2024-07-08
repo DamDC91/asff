@@ -206,13 +206,13 @@ package body Fuzzy_Matcher is
       Distance_Max  : constant Natural := Integer'Max (S1'Length, S2'Length);
    begin
       if Distance_Max = 0 then
-         return 0.0;
+         return 1.0e-12;
       end if;
       if Edit_Distance = 0 then
          return 1.0;
       end if;
-      return Similarity_Probability_Type (1.0 - (Float (Edit_Distance)
-                                          / Float (Distance_Max)));
+      return 1.0e-12 + Similarity_Probability_Type
+        (1.0 - (Float (Edit_Distance) / Float (Distance_Max)));
    end Compute_Similarity;
 
    function Compute_Arguments_Similarity
@@ -220,6 +220,7 @@ package body Fuzzy_Matcher is
       Search_Args : Search_Queries.Arguments_Vectors.Vector)
       return Similarity_Probability_Type
    is
+      use type Ada.Containers.Count_Type;
       package Distance_Matrix is new Optimal_Word_Pair_Similarity_Solver
         (Max_Size => 50,
          String_Vector => Search_Queries.Arguments_Vectors,
@@ -227,14 +228,16 @@ package body Fuzzy_Matcher is
          Compure_Similarity => Compute_Similarity);
 
       Matrix : constant Distance_Matrix.Matrix_Type :=
-        Distance_Matrix.Compute_Similarity_Matrix (Subp_Args, Search_Args);
+        (if Subp_Args.Length <= Search_Args.Length then
+            Distance_Matrix.Compute_Similarity_Matrix (Subp_Args, Search_Args)
+         else
+            Distance_Matrix.Compute_Similarity_Matrix (Search_Args, Subp_Args));
 
       Indicies : constant Distance_Matrix.Result_Indices_Type :=
-        Distance_Matrix.Find_Optimal_Pairs (Matrix);
+        Distance_Matrix.Hungarian (Distance_Matrix.Log (Matrix));
 
       Similarity  : Similarity_Probability_Type := 1.0;
 
-      use type Ada.Containers.Count_Type;
       use Distance_Matrix;
    begin
       if Indicies'Length = 0 then
@@ -359,7 +362,7 @@ package body Fuzzy_Matcher is
    exception
       when others =>
          Ada.Text_IO.Put_Line (Unit.Get_Filename);
-         Unit.Print;
+         -- Unit.Print;
          raise;
    end Process_Unit;
 

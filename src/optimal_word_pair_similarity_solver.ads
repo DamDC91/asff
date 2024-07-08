@@ -41,4 +41,17 @@ package Optimal_Word_Pair_Similarity_Solver is
    function Find_Optimal_Pairs (Matrix : Matrix_Type)
                                 return Result_Indices_Type;
 
+   function Transposition (M : Matrix_Type) return Matrix_Type;
+
+   type Similarity_Db_Type is new Float;
+   -- range 0.0 .. Float'Last;
+
+   type Matrix_Bd_Type is array
+     (Row_Index_Type range <>,
+      Col_Index_Type range <>) of Similarity_Db_Type;
+
+   function Log (M : Matrix_Type) return Matrix_Bd_Type;
+
+   function Hungarian (M : in Matrix_Bd_Type) return Result_Indices_Type;
+
 end Optimal_Word_Pair_Similarity_Solver;
