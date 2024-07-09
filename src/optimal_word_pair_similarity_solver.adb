@@ -1,4 +1,5 @@
 with Ada.Numerics.Generic_Elementary_Functions;
+with Ada.Assertions;
 
 package body Optimal_Word_Pair_Similarity_Solver is
 
@@ -127,56 +128,64 @@ package body Optimal_Word_Pair_Similarity_Solver is
 
    function Hungarian (M : in Matrix_Bd_Type) return Result_Indices_Type
    is
-      J   : constant Natural := M'Length (1);
-      W   : constant Natural := M'Length (2);
-      Job : array (0 .. W) of Integer := (others => -1);
-      ys  : array (0 .. J - 1) of Similarity_Db_Type := (others => 0.0);
-      yt  : array (0 .. W) of Similarity_Db_Type := (others => 0.0);
-      Answers : array (0 .. J - 1) of Similarity_Db_Type;
-      Last_Answer : Integer := Answers'First;
+      J   : constant Row_Index_Type := M'Length (1);
+      W   : constant Col_Index_Type := M'Length (2);
+      Job : array (1 .. W + 1) of Row_Index_Type :=
+        (others => Row_Index_Type (Max_Size));
+      Ys  : array (1 .. J)  of Similarity_Db_Type := (others => 0.0);
+      Yt  : array (Col_Index_Type range 1 .. W + 1) of Similarity_Db_Type :=
+        (others => 0.0);
+      Answers : array (1 .. J) of Similarity_Db_Type;
+      Last_Answer : Row_Index_Type := Answers'First;
    begin
-      for J_Current in 0 .. J - 1 loop
+      Ada.Assertions.Assert (J <= Row_Index_Type (W));
+      for J_Current in 1 .. J loop
          declare
-            W_Current : Integer := W;
-            Min_To : array (0 .. W) of Similarity_Db_Type :=
+            W_Current : Col_Index_Type := W + 1;
+            Min_To : array (1 .. W + 1) of Similarity_Db_Type :=
               (others => Similarity_Db_Type'Last);
-            Prv : array (0 .. W) of Integer := (others => -1);
-            In_Z : array (0 .. W) of Boolean := (others => False);
+            Prv : array (1 .. W + 1) of Col_Index_Type :=
+              (others => Col_Index_Type (Max_Size));
+            In_Z : array (1 .. W + 1) of Boolean := (others => False);
          begin
             Job (W_Current) := J_Current;
-            while Job (W_Current) /= -1 loop
+            while Job (W_Current) /= Row_Index_Type (Max_Size) loop
                In_Z (W_Current) := True;
                declare
-                  JJ : constant Integer := Job (W_Current);
+                  JJ : constant Row_Index_Type := Job (W_Current);
                   Deltaa : Similarity_Db_Type := Similarity_Db_Type'Last;
-                  W_Next : Integer := -1;
+                  W_Next : Col_Index_Type := Col_Index_Type (Max_Size);
                begin
-                  for WW in 0 .. W -1 loop
+                  for WW in 1 .. W loop
                      if not In_Z (WW) then
-                        if Ckmin (Min_To (WW), M (Row_Index_Type (JJ) + M'First (1), Col_Index_Type (WW) + M 'First (2)) - Ys (JJ) - Yt (WW)) then
+                        if Ckmin (Min_To (WW),
+                                  M (JJ + M'First (1) - 1,
+                                     WW + M'First (2) - 1) - Ys (JJ) - Yt (WW))
+                        then
                            Prv (WW) := W_Current;
                         end if;
-                        if Ckmin (deltaa, Min_To (WW)) then
+                        if Ckmin (Deltaa, Min_To (WW)) then
                            W_Next := WW;
                         end if;
                      end if;
                   end loop;
-                  for WW in 0 .. W loop
+                  for WW in 1 .. W + 1 loop
                      if In_Z (WW) then
-                        Ys (Job (WW)) := Ys (Job (WW)) + deltaa;
-                        Yt (WW) := Yt (WW) - deltaa;
+                        Ys (Job (WW)) := Ys (Job (WW)) + Deltaa;
+                        Yt (WW) := Yt (WW) - Deltaa;
                      else
-                        Min_To (WW) := Min_To (WW) - deltaa;
+                        Min_To (WW) := Min_To (WW) - Deltaa;
                      end if;
                   end loop;
                   W_Current := W_Next;
                end;
+
             end loop;
 
             declare
-               WW : Integer := -1;
+               WW : Col_Index_Type := Col_Index_Type (Max_Size);
             begin
-               while W_Current /= W loop
+               while W_Current /= Job'Last loop
                   WW := Prv (W_Current);
                   Job (W_Current) := Job (WW);
                   W_Current := WW;
@@ -186,16 +195,15 @@ package body Optimal_Word_Pair_Similarity_Solver is
             Last_Answer := Last_Answer + 1;
          end;
       end loop;
-
       declare
          Pairs : Result_Indices_Type (1 .. Result_Index_Type (J));
          L : Result_Index_Type := Pairs'First;
       begin
          for I in Job'First .. Job'Last - 1 loop
-            if Job (I) /= -1 then
+            if Job (I) /= Row_Index_Type (Max_Size) then
                Pairs (L) :=
-                 (Row => Row_Index_Type (Job (I)) + M'First (1),
-                  Col => Col_Index_Type (I) + M'First (2));
+                 (Row => Job (I),
+                  Col => I);
                L := L + 1;
             end if;
          end loop;
